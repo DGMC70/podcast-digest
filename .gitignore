@@ -1,6 +1,8 @@
 # Runtime generated
 config.json
 state.json
+episodes.json
+analysis.json
 *.html
 
 # Python

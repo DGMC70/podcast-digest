@@ -1,101 +1,118 @@
 ---
 name: podcast-digest
 description: >
-  Automated daily podcast digest system. Monitors RSS feeds, analyzes episodes with AI,
+  Automated daily podcast digest. Monitors RSS feeds, analyzes new episodes,
   and delivers a curated HTML digest via email, Telegram, webhook, or file.
-  Use when the user wants to:
-  (1) Set up daily podcast monitoring and summarization,
-  (2) Run a podcast digest pipeline (fetch, analyze, deliver),
-  (3) Configure podcast lists, delivery channels, or AI model preferences,
-  (4) Generate a one-time or recurring podcast summary report.
-  Supports 51 built-in podcasts (AI, Crypto, VC, Macro, Tech) with customizable lists.
-  Compatible with OpenClaw, Claude Code, and Cursor.
+  Use when the user wants to run a podcast digest, set up podcast monitoring,
+  configure podcast lists or delivery channels, or generate a podcast summary.
+  Supports 51 built-in podcasts (AI, Crypto, VC, Macro, Tech).
 ---
 
 # Podcast Daily Digest
 
-Fetches podcast RSS feeds, analyzes new episodes with AI (cross-podcast trends, deep dives, discoveries), and delivers a dark-themed HTML digest.
+Fetches podcast RSS feeds, analyzes new episodes, and delivers a dark-themed HTML digest with cross-podcast trends, deep dives, and discoveries.
 
-## Platform Support
+## First-Time Setup
 
-This skill works with multiple AI coding agents. Install to the appropriate path:
-
-| Platform | Install Path | Notes |
-|----------|-------------|-------|
-| **OpenClaw** (default) | `~/.openclaw/skills/podcast-digest/` | Recommended |
-| **Claude Code** | `~/.claude/skills/podcast-digest/` | |
-| **Cursor** | `~/.cursor/skills/podcast-digest/` (personal) or `.cursor/skills/podcast-digest/` (project) | |
-
-## Setup
-
-Run the interactive setup wizard to generate `config.json`:
+If `config.json` does not exist in the skill root, run the setup wizard:
 
 ```bash
-python scripts/setup.py          # Interactive setup
-python scripts/setup.py --defaults   # Quick: all 51 default podcasts, file delivery
+python scripts/setup.py              # Interactive
+python scripts/setup.py --defaults   # Quick: 51 default podcasts, file delivery
 ```
 
-The wizard configures:
-- **Podcasts**: 51 curated defaults (AI, Crypto, VC, Macro, Tech, Politics) or custom list. See `references/default-podcasts.json`.
-- **Delivery**: File (default), Email (SMTP), Telegram, Webhook, or all. See `references/delivery.md`.
-- **AI**: Any OpenAI-compatible API (OpenAI, OpenRouter, Together, Ollama, etc.).
-- **Schedule**: Run time, timezone, lookback window.
+This creates `config.json` with podcast list, delivery method, and schedule.
 
-### Environment Variables
+## Workflow — Running the Digest
 
-Set these before running:
+Follow these steps in order:
+
+### Step 1: Fetch episodes
 
 ```bash
-AI_API_KEY=<your-api-key>              # Required: OpenAI / compatible API key
-SMTP_PASSWORD=<your-smtp-password>     # If using email delivery
-TELEGRAM_BOT_TOKEN=<your-bot-token>    # If using Telegram delivery
+python scripts/fetch.py --output episodes.json
 ```
 
-## Running the Digest
+This fetches all configured RSS feeds, deduplicates against previous runs, and writes new episodes to `episodes.json`. Add `--force` to bypass dedup.
 
-```bash
-python scripts/digest.py              # Normal: fetch, analyze, deliver
-python scripts/digest.py --dry-run    # Save HTML to file, no delivery
-python scripts/digest.py --force      # Bypass dedup, reprocess all recent episodes
-```
+If the file is empty (`[]`), tell the user there are no new episodes and stop.
 
-### Pipeline Steps
+### Step 2: Analyze episodes (you do this)
 
-1. **Fetch RSS** — Parallel fetch of all configured feeds (10 threads). Collects episodes within lookback window.
-2. **Dedup** — Skips already-sent episodes (tracked in `state.json`, 14-day rolling window). `--force` bypasses this.
-3. **AI Analysis** — Sends episode data to configured API. Tries each model in cascade (each with 2 retries).
-4. **Build HTML** — Dark-themed email: trending topics, deep dives, standard summaries, discoveries.
-5. **Deliver** — Via configured channel(s).
-6. **Update State** — Records sent episode IDs.
+Read `episodes.json`. Analyze the episodes and produce a JSON object following the schema and prompt below. Save the result as `analysis.json` in the skill root.
 
-### Requirements
+#### Analysis Prompt
 
-- Python 3.8+ with `feedparser` (auto-installed if missing)
-- `AI_API_KEY` environment variable
-- For email: SMTP credentials; for Telegram: bot token
+You are a podcast digest analyst for an investor. Analyze the episodes and produce JSON with:
 
-### Output Format
+1. **trending_topics**: Topics appearing in 2+ podcasts. Each has: title, list of podcast names discussing it, summary of different perspectives, color hint (red/orange/blue/green).
+2. **deep_dives**: Pick up to 4 highest-value episodes (non-consensus views, unique insights, important data, novel frameworks). Each needs: podcast_name, title, link, duration, categories, hosts_guests, overview paragraph, 2-3 insight bullets (title + detail), one notable quote (text, speaker, context).
+3. **standard_episodes**: 2-3 sentence summaries for remaining episodes. Each: podcast_name, title, link, categories, summary.
+4. **discoveries**: Organized as: new_companies, key_data, trend_signals, watch_items, risk_alerts, frameworks (each an array of strings).
 
-- **Trending Topics** — Cross-podcast themes (2+ podcasts on same topic)
-- **Deep Dives** — Up to 4 high-value episodes with insights and quotes
-- **Standard Episodes** — Brief summaries
-- **Discoveries** — New companies, data points, trend signals, risk alerts
+**Language**: Mixed Chinese-English. English for names, companies, quotes, technical terms. Chinese for insights, analysis, summaries.
 
-Language: Mixed Chinese-English (English for names/companies/terms, Chinese for analysis).
-
-## Config Structure
-
-Generated by `setup.py`, stored as `config.json`:
+#### Analysis JSON Schema
 
 ```json
 {
-  "delivery": {"method": "file"},
-  "schedule": {"time": "08:00", "timezone": "Asia/Shanghai", "lookback_hours": 24},
-  "max_deep_dives": 4,
-  "ai": {
-    "api_base": "https://api.openai.com/v1",
-    "models": ["gpt-4.1", "gpt-4.1-mini"]
-  },
-  "podcasts": [{"id": "...", "name": "...", "rss": "...", "group": "core|important|supplement|archive|custom"}]
+  "date": "YYYY-MM-DD",
+  "total_episodes": <number>,
+  "trending_topics": [
+    {"title": "str", "podcasts": ["str"], "summary": "str", "color": "red|orange|blue|green"}
+  ],
+  "deep_dives": [
+    {
+      "podcast_name": "str", "title": "str", "link": "str", "duration": "str",
+      "categories": ["str"], "hosts_guests": "str", "overview": "str",
+      "insights": [{"title": "str", "detail": "str"}],
+      "quote": {"text": "str", "speaker": "str", "context": "str"}
+    }
+  ],
+  "standard_episodes": [
+    {"podcast_name": "str", "title": "str", "link": "str", "categories": ["str"], "summary": "str"}
+  ],
+  "discoveries": {
+    "new_companies": [], "key_data": [], "trend_signals": [],
+    "watch_items": [], "risk_alerts": [], "frameworks": []
+  }
 }
 ```
+
+### Step 3: Build HTML
+
+```bash
+python scripts/build_html.py analysis.json --output digest.html
+```
+
+### Step 4: Deliver
+
+```bash
+python scripts/deliver.py digest.html
+```
+
+Delivers via the method configured in `config.json` (file, email, telegram, webhook, or all).
+
+### Step 5: Update state
+
+```bash
+python scripts/update_state.py episodes.json
+```
+
+Marks episodes as sent so they won't appear in the next run.
+
+### Step 6: Report to user
+
+Summarize: how many episodes processed, key trending topics, which episodes got deep-dive treatment.
+
+## Modifying Podcast List
+
+To add/remove podcasts, either:
+- Edit `config.json` directly (the `podcasts` array)
+- Re-run `python scripts/setup.py`
+
+Default list: see `references/default-podcasts.json` (51 podcasts across AI, Crypto, VC, Macro, Tech, Politics).
+
+## Delivery Channels
+
+See `references/delivery.md` for setup details on each channel (SMTP email, Telegram, webhook).

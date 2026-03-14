@@ -1,180 +1,103 @@
 # Podcast Daily Digest
 
-An AI-powered skill that monitors podcast RSS feeds, analyzes new episodes, and delivers a curated daily digest with cross-podcast trends, deep dives, and discoveries.
+An AI agent skill that monitors 51+ podcast RSS feeds and delivers a curated daily digest with cross-podcast trends, deep dives, and discoveries.
 
-## Features
+**No API key needed.** Your agent (OpenClaw, Claude Code, Cursor) does the AI analysis — this skill just gives it the workflow and tools.
 
-- **51 built-in podcasts** covering AI, Crypto, VC, Macro, Tech, and Politics
-- **AI-powered analysis** with model cascade fallback via any OpenAI-compatible API
-- **Cross-podcast trend detection** — surfaces topics discussed across multiple shows
-- **Deep dive recommendations** — highlights high-value episodes with non-consensus insights
-- **Dark-themed HTML digest** — beautiful email-ready output
-- **Multiple delivery channels** — File, SMTP Email, Telegram, Webhook, or all at once
-- **Dedup & state tracking** — 14-day rolling window prevents duplicate sends
-- **Bilingual output** — Chinese insights with English names/terms/quotes
-- **Cross-platform** — macOS, Linux, and Windows
+## Install
 
-## Platform Support
-
-Works as a skill for multiple AI coding agents:
-
-| Platform | Install Path |
-|----------|-------------|
-| **OpenClaw** (recommended) | `~/.openclaw/skills/podcast-digest/` |
-| **Claude Code** | `~/.claude/skills/podcast-digest/` |
-| **Cursor** | `~/.cursor/skills/podcast-digest/` or `.cursor/skills/podcast-digest/` |
-
-## Quick Start
-
-### 1. Clone & install
+Clone into your agent's skill directory:
 
 ```bash
-git clone https://github.com/DGMC70/podcast-digest.git
+# OpenClaw (recommended)
+git clone https://github.com/DGMC70/podcast-digest.git ~/.openclaw/skills/podcast-digest
 
-# Copy to your preferred platform's skill directory, e.g.:
-cp -r podcast-digest ~/.openclaw/skills/podcast-digest
+# Claude Code
+git clone https://github.com/DGMC70/podcast-digest.git ~/.claude/skills/podcast-digest
+
+# Cursor (personal)
+git clone https://github.com/DGMC70/podcast-digest.git ~/.cursor/skills/podcast-digest
 ```
 
-### 2. Install Python dependency
+Or simply tell your agent:
+
+> Install the podcast-digest skill from https://github.com/DGMC70/podcast-digest
+
+## Use
+
+Ask your agent:
+
+> Run my podcast digest
+
+The agent will:
+1. **Fetch** — pull RSS feeds for all configured podcasts (parallel, 10 threads)
+2. **Analyze** — identify trending topics, pick deep-dive episodes, summarize the rest
+3. **Build** — generate a dark-themed HTML digest
+4. **Deliver** — save to file, send via email/Telegram/webhook
+
+That's it. The agent reads `SKILL.md` and handles everything.
+
+## Setup
+
+On first run the agent will run the setup wizard automatically. Or run it yourself:
 
 ```bash
-pip install feedparser
+python scripts/setup.py              # Interactive
+python scripts/setup.py --defaults   # Quick: 51 default podcasts, file delivery
 ```
 
-Or let the script auto-install it on first run.
+Configures: podcast list, delivery method, schedule.
 
-### 3. Set environment variables
+## What's in the Digest
 
-```bash
-# Required: your AI API key (OpenAI, OpenRouter, etc.)
-export AI_API_KEY="sk-..."
+- **Trending Topics** — themes appearing across 2+ podcasts
+- **Deep Dives** — up to 4 high-value episodes with insights and quotes
+- **Standard Summaries** — brief coverage of remaining episodes
+- **Discoveries** — new companies, key data, trend signals, risk alerts
 
-# Optional: for email delivery
-export SMTP_PASSWORD="your-app-password"
-
-# Optional: for Telegram delivery
-export TELEGRAM_BOT_TOKEN="123456:ABC-DEF..."
-```
-
-On Windows (PowerShell):
-```powershell
-$env:AI_API_KEY = "sk-..."
-$env:SMTP_PASSWORD = "your-app-password"
-$env:TELEGRAM_BOT_TOKEN = "123456:ABC-DEF..."
-```
-
-### 4. Run setup wizard
-
-```bash
-python scripts/setup.py              # Interactive setup
-python scripts/setup.py --defaults   # Quick: 51 podcasts, file delivery, OpenAI API
-```
-
-### 5. Run the digest
-
-```bash
-python scripts/digest.py              # Fetch, analyze, deliver
-python scripts/digest.py --dry-run    # Save HTML locally, no delivery
-python scripts/digest.py --force      # Reprocess all recent episodes
-```
+Language: Chinese insights, English names/terms/quotes.
 
 ## Delivery Channels
 
-| Channel | Config `method` | Setup Required |
-|---------|----------------|----------------|
-| **File** (default) | `"file"` | None — saves HTML to skill directory |
-| **Email** | `"email"` | SMTP server + `SMTP_PASSWORD` env var |
-| **Telegram** | `"telegram"` | Bot token + chat ID |
-| **Webhook** | `"webhook"` | Webhook URL (Slack, Discord, custom) |
-| **All** | `"all"` | All of the above |
+| Channel | Extra Setup |
+|---------|------------|
+| **File** (default) | None |
+| **Email** (SMTP) | SMTP server + `SMTP_PASSWORD` env var |
+| **Telegram** | Bot token + chat ID |
+| **Webhook** | URL (Slack, Discord, etc.) |
 
-See [`references/delivery.md`](references/delivery.md) for detailed setup instructions.
+Details: [`references/delivery.md`](references/delivery.md)
 
 ## Directory Structure
 
 ```
-podcast-digest/
-├── README.md                           # This file
-├── SKILL.md                            # Skill definition (agent-facing)
+podcast-digest/           ← This IS the skill. Clone it into your skills folder.
+├── SKILL.md              ← Agent reads this (workflow + analysis prompt)
 ├── references/
-│   ├── default-podcasts.json           # 51 curated podcast feeds
-│   └── delivery.md                     # Delivery channel reference
+│   ├── default-podcasts.json   (51 curated feeds)
+│   └── delivery.md             (channel setup guide)
 └── scripts/
-    ├── setup.py                        # Interactive config wizard
-    ├── digest.py                       # Main pipeline
-    └── emailer.py                      # HTML email builder
+    ├── setup.py          ← Config wizard
+    ├── fetch.py          ← RSS fetch + dedup → episodes.json
+    ├── build_html.py     ← analysis.json → HTML
+    ├── deliver.py        ← Send HTML via configured channel
+    ├── update_state.py   ← Mark episodes as sent
+    └── emailer.py        ← HTML template engine
 ```
 
-Generated at runtime:
-- `config.json` — your preferences (podcasts, delivery, AI, schedule)
-- `state.json` — dedup state (sent episode IDs, last run timestamp)
+## Built-in Podcasts (51)
 
-## How It Works
+**Core**: All-In, 20VC, Bankless, BG2 Pod  
+**Important**: Acquired, Invest Like the Best, a16z, No Priors, Hard Fork, Latent Space, Dwarkesh, Lightcone...  
+**Supplement**: Lex Fridman, Odd Lots, Founders, Unchained, What Bitcoin Did...  
+**Archive**: Rachel Maddow, Tucker Carlson, Kara Swisher...
 
-```
-RSS Feeds ──► Fetch (parallel) ──► Dedup ──► AI Analysis ──► HTML Build ──► Deliver
-                                                │                              │
-                                          OpenAI-compatible            File / Email /
-                                          API (configurable)         Telegram / Webhook
-```
-
-1. **Fetch** — Parallel RSS fetch (10 threads) for all configured podcasts
-2. **Dedup** — Skip episodes already processed (tracked in `state.json`)
-3. **Analyze** — Send episode metadata to AI API; tries models in cascade order
-4. **Build** — Generate dark-themed HTML with trending topics, deep dives, standard summaries, and discoveries
-5. **Deliver** — Send via configured channel(s)
-6. **Update** — Record processed episode IDs
-
-## Configuration
-
-`config.json` (generated by `setup.py`):
-
-```json
-{
-  "delivery": {
-    "method": "file"
-  },
-  "schedule": {
-    "time": "08:00",
-    "timezone": "Asia/Shanghai",
-    "lookback_hours": 24
-  },
-  "max_deep_dives": 4,
-  "ai": {
-    "api_base": "https://api.openai.com/v1",
-    "models": ["gpt-4.1", "gpt-4.1-mini"]
-  },
-  "podcasts": [...]
-}
-```
-
-### AI API Providers
-
-Any OpenAI-compatible chat completions API works:
-
-| Provider | API Base | Notes |
-|----------|---------|-------|
-| OpenAI | `https://api.openai.com/v1` | Default |
-| OpenRouter | `https://openrouter.ai/api/v1` | Access to many models |
-| Together | `https://api.together.xyz/v1` | Open-source models |
-| Ollama (local) | `http://localhost:11434/v1` | Free, private |
-
-### Podcast Groups
-
-| Group | Priority | Description |
-|-------|----------|-------------|
-| `core` | Highest | Must-read podcasts |
-| `important` | High | Key industry voices |
-| `supplement` | Medium | Broad coverage |
-| `archive` | Low | Occasional reference |
-| `custom` | Medium | User-added podcasts |
+Full list: [`references/default-podcasts.json`](references/default-podcasts.json)
 
 ## Requirements
 
-- Python 3.8+
-- `feedparser` (auto-installed if missing)
-- `AI_API_KEY` environment variable
-- Internet access for RSS feeds and AI API
+- Python 3.8+ (only dependency: `feedparser`, auto-installed)
+- An AI agent (OpenClaw / Claude Code / Cursor)
 
 ## License
 
